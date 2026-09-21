@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CryptoFolio — Private Portfolio Tracker</title>
+  <meta name="description" content="Free, private, self-hosted crypto portfolio tracker. No signup required.">
+  <meta name="robots" content="noindex, nofollow">
+
+  <!-- Security Headers & Content Security Policy (CSP) -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; connect-src 'self' https://api.rabby.io https://api.coingecko.com https://api.binance.com https://api.dexscreener.com https://eth.blockscout.com https://mempool.space https://api.blockcypher.com https://api.mainnet-beta.solana.com https://rosetta-api.internetcomputer.org https://fullnode.mainnet.aptoslabs.com https://tonapi.io https://api.mainnet.hiro.so https://rpc.mainnet.near.org https://rest.cosmos.directory https://*.publicnode.com https://rpc.zora.energy; object-src 'none'; base-uri 'self';">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">
+        <div class="logo-mark">◈</div>
+        <span class="logo-text">CryptoFolio</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a class="nav-item active" data-page="dashboard" href="#dashboard">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        <span>Dashboard</span>
+      </a>
+      <a class="nav-item" data-page="sources" href="#sources">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        <span>Sources</span>
+      </a>
+      <a class="nav-item" data-page="transactions" href="#transactions">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+        <span>Transactions</span>
+      </a>
+      <a class="nav-item" data-page="settings" href="#settings">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
+        <span>Settings</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="privacy-badge">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <span>100% Local &amp; Private</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content" id="mainContent">
+
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="icon-btn" id="sidebarToggle" aria-label="Toggle sidebar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <span class="page-title" id="pageTitle">Dashboard</span>
+      </div>
+      <div class="topbar-right">
+        <span class="last-synced" id="lastSynced">Not synced</span>
+        <button class="icon-btn" id="refreshBtn" title="Refresh prices &amp; balances">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        </button>
+        <button class="btn-primary" id="addSourceBtn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Source
+        </button>
+      </div>
+    </header>
+
+    <!-- Pages -->
+    <div class="page active" id="page-dashboard"></div>
+    <div class="page" id="page-sources"></div>
+    <div class="page" id="page-transactions"></div>
+    <div class="page" id="page-settings"></div>
+
+  </main>
+
+  <!-- Modal Overlay -->
+  <div class="modal-overlay hidden" id="modalOverlay">
+    <div class="modal" id="modal">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modalTitle">Add Source</h2>
+        <button class="icon-btn modal-close" id="modalClose">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+
+  <!-- Toast Notifications -->
+  <div class="toasts" id="toasts"></div>
+
+  <!-- JS Modules -->
+  <script src="js/vendor/solanaWeb3.min.js?v=2.9.0"></script>
+  <script>if (typeof solanaWeb3 !== 'undefined') window.solanaWeb3 = solanaWeb3;</script>
+  <script src="js/utils/constants.js?v=2.9.0"></script>
+  <script src="js/utils/formatter.js?v=2.9.0"></script>
+  <script src="js/storage.js?v=2.9.0"></script>
+  <script src="js/apis/coingecko.js?v=2.9.0"></script>
+  <script src="js/apis/btcexplorer.js?v=2.9.0"></script>
+  <script src="js/apis/etherscan.js?v=2.9.0"></script>
+  <script src="js/apis/binance.js?v=2.9.0"></script>
+  <script src="js/apis/injective.js?v=2.9.0"></script>
+  <script src="js/apis/solana.js?v=2.9.0"></script>
+  <script src="js/apis/stacks.js?v=2.9.0"></script>
+  <script src="js/apis/ton.js?v=2.9.0"></script>
+  <script src="js/apis/near.js?v=2.9.0"></script>
+  <script src="js/apis/doge.js?v=2.9.0"></script>
+  <script src="js/apis/cosmosChains.js?v=2.9.0"></script>
+  <script src="js/apis/aptos.js?v=2.9.0"></script>
+  <script src="js/apis/icp.js?v=2.9.0"></script>
+  <script src="js/apis/bscScan.js?v=2.9.0"></script>
+  <script src="js/apis/multichain.js?v=2.9.0"></script>
+  <script src="js/apis/evmScanner.js?v=2.9.0"></script>
+  <script src="js/apis/transactions.js?v=2.9.0"></script>
+  <script src="js/components/notifications.js?v=2.9.0"></script>
+  <script src="js/components/chart.js?v=2.9.0"></script>
+  <script src="js/components/walletModal.js?v=2.9.0"></script>
+  <script src="js/components/dashboard.js?v=2.9.0"></script>
+  <script src="js/components/txPage.js?v=2.9.0"></script>
+  <script src="js/app.js?v=2.9.0"></script>
+
+</body>
+</html>
