@@ -405,6 +405,7 @@ tr:hover td { background: var(--card-hover); }
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 16px;
+  position: relative;
 }
 .chart-card-title {
   font-size: 12px;
@@ -412,7 +413,88 @@ tr:hover td { background: var(--card-hover); }
   text-transform: uppercase;
   letter-spacing: .5px;
   color: var(--text-3);
-  margin-bottom: 14px;
+  margin-bottom: 6px;
+}
+
+.chart-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.chart-perf-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chart-perf-val {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-1);
+  letter-spacing: -0.3px;
+  font-family: 'Inter', sans-serif;
+}
+
+.chart-perf-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-2);
+  border: 1px solid var(--border);
+}
+
+.chart-perf-pill.change-up {
+  background: rgba(74, 222, 128, 0.12);
+  color: var(--green, #4ade80);
+  border-color: rgba(74, 222, 128, 0.25);
+}
+
+.chart-perf-pill.change-down {
+  background: rgba(248, 113, 113, 0.12);
+  color: var(--red, #f87171);
+  border-color: rgba(248, 113, 113, 0.25);
+}
+
+.chart-timeframes {
+  display: flex;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.timeframe-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 9px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+
+.timeframe-btn:hover {
+  color: var(--text-1);
+}
+
+.timeframe-btn.active {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-1);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border);
 }
 
 .chart-container { position: relative; }

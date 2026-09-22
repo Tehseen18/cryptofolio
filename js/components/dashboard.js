@@ -100,14 +100,28 @@ CF.Dashboard = (() => {
           </div>
           <div class="chart-legend" id="donutLegend"></div>
         </div>
-        <div class="chart-card">
-          <div class="chart-card-title">Portfolio History</div>
-          <div class="chart-container" style="height:180px;">
+        <div class="chart-card" id="portfolioPerfCard" style="min-height:250px;">
+          <div class="chart-card-header">
+            <div>
+              <div class="chart-card-title">Portfolio Performance</div>
+              <div class="chart-perf-summary">
+                <span class="chart-perf-val" id="chartPerfVal">${CF.fmt.currency(total)}</span>
+                <span class="chart-perf-pill" id="chartPerfPill">Calculating 7D...</span>
+              </div>
+            </div>
+            <div class="chart-timeframes">
+              <button class="timeframe-btn" data-tf="24H" onclick="CF.Charts.changeTimeframe('24H')">24H</button>
+              <button class="timeframe-btn active" data-tf="7D" onclick="CF.Charts.changeTimeframe('7D')">7D</button>
+              <button class="timeframe-btn" data-tf="30D" onclick="CF.Charts.changeTimeframe('30D')">30D</button>
+              <button class="timeframe-btn" data-tf="90D" onclick="CF.Charts.changeTimeframe('90D')">90D</button>
+            </div>
+          </div>
+          <div class="chart-container" style="height:190px;">
             <canvas id="historyChart"></canvas>
           </div>
-          ${CF.Storage.getSnapshots().length < 2
-            ? `<div style="font-size:11px;color:var(--text-3);text-align:center;margin-top:8px;">History builds up as you refresh daily.</div>`
-            : ''}
+          <div id="chartLoadingIndicator" style="display:none;font-size:11px;color:var(--text-3);text-align:center;margin-top:6px;">
+            Updating market performance...
+          </div>
         </div>
       </div>
     `;
@@ -115,7 +129,7 @@ CF.Dashboard = (() => {
     // Render charts after DOM is ready
     requestAnimationFrame(() => {
       CF.Charts.renderDonut(aggregated.filter(h => h.valueUSD > 0));
-      CF.Charts.renderHistory(CF.Storage.getSnapshots());
+      CF.Charts.renderPerformanceHistory(aggregated, '7D');
     });
   }
 
