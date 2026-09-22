@@ -76,7 +76,7 @@ CF.SolanaAPI = (() => {
     { symbol: 'GME',      name: 'GameStop',             decimals: 9, mint: '8wXtPeU6557ETkp9WHFY1n1EcU6NxDvbAggHGsMYiHsB' },
     { symbol: 'CWIF',     name: 'catwifhat',            decimals: 2, mint: '7atgF8KQo4wJrD5ATGX7t1V2zVvykPJbFfNeVf1icFv1', isToken2022: true },
     { symbol: 'DOOD',     name: 'Doodles',              decimals: 9, mint: 'DvjbEsdca43oQcw2h3HW1CT7N3x5vRcr3QrvTUHnXvgV' },
-    { symbol: 'BABY',     name: 'Baby Samo Coin',       decimals: 9, mint: 'Uuc6hiKT9Y6ASoqs2phonGGw2LAtecfJu9yEohppzWH' },
+    { symbol: 'BABY',     name: 'Baby Samo Coin',       decimals: 9, mint: 'Uuc6hiKT9Y6ASoqs2phonGGw2LAtecfJu9yEohppzWH', coingeckoId: 'baby-samo-coin' },
     { symbol: 'SOLdiers', name: 'SOLdiers',             decimals: 6, mint: 'Ef74xKM79ijqxcW2cWks3G1NRe8wJQEdizu1NS5Dpump', isToken2022: true },
     { symbol: 'PUMP',     name: 'Pump Token',           decimals: 6, mint: '8fSUpBWPzpjGG1kuJFxayj7SEx6JHgznLPiMqPxkpump', isToken2022: true },
   ];
@@ -268,18 +268,29 @@ CF.SolanaAPI = (() => {
 
     const priceCache = CF.Storage?.getPriceCache()?.data || {};
 
-    // 1. Assign real-time prices from Binance / CoinGecko cache first
+    const CANONICAL_SOL_SYMBOLS = new Set([
+      'SOL', 'JUP', 'RAY', 'BONK', 'WIF', 'PYTH', 'JTO', 'USDC', 'USDT', 'RENDER', 'BOME', 'ME',
+      'DRIFT', 'TNSR', 'KMNO', 'IO', 'HNT', 'MOBILE', 'IOT', 'MOODENG', 'GOAT', 'ACT', 'PNUT',
+      'CHILLGUY', 'FARTCOIN', 'PENGU', 'POPCAT', 'SAMO', 'WEN', 'PONKE'
+    ]);
+
+    // 1. Assign real-time prices: check mint first, then explicit coingeckoId, and only canonical symbols from CEX
     tokens.forEach(t => {
       const sym = (t.symbol || '').toUpperCase();
+      const mintKey = (t.mint || '').toLowerCase();
       const cgId = (t.coingeckoId || '').toLowerCase();
-      const cached = priceCache[sym] || priceCache[cgId];
+
+      const cached = (mintKey && (priceCache[mintKey] || priceCache[t.mint]))
+        || (cgId && priceCache[cgId])
+        || (CANONICAL_SOL_SYMBOLS.has(sym) ? priceCache[sym] : null);
+
       if (cached && cached.usd > 0) {
         t.price = cached.usd;
         if (cached.usd_24h_change != null) t.change24h = cached.usd_24h_change;
       }
     });
 
-    const neededMints = tokens.filter(t => !t.price || !t.image || t.name === 'SPL Token');
+    const neededMints = tokens.filter(t => !t.price || !t.image || t.name === 'SPL Token' || !CANONICAL_SOL_SYMBOLS.has((t.symbol || '').toUpperCase()));
     if (neededMints.length === 0) return tokens;
 
     try {
@@ -298,7 +309,7 @@ CF.SolanaAPI = (() => {
           const liq = p.liquidity?.usd || 0;
           const price = parseFloat(p.priceUsd || 0);
           if (price <= 0) return;
-          // Filter out obvious fake/manipulated pools (e.g. fake Meteora 38.9M BONK pool with price 0.01597)
+          // Filter out obvious fake/manipulated pools
           if (p.dexId !== 'raydium' && p.dexId !== 'orca' && liq > 5000000) return;
 
           const current = pairMap[mint];
@@ -319,9 +330,14 @@ CF.SolanaAPI = (() => {
           if (pair) {
             if (pair.baseToken?.symbol && (!t.symbol || t.symbol.includes('...'))) t.symbol = pair.baseToken.symbol;
             if (pair.baseToken?.name && (t.name === 'SPL Token' || !t.name)) t.name = pair.baseToken.name;
-            if (!t.price && pair.priceUsd) t.price = parseFloat(pair.priceUsd);
+            const pUsd = parseFloat(pair.priceUsd);
+            if (!isNaN(pUsd) && pUsd > 0) {
+              if (!t.price || !CANONICAL_SOL_SYMBOLS.has((t.symbol || '').toUpperCase())) {
+                t.price = pUsd;
+              }
+            }
             if (!t.image && pair.info?.imageUrl) t.image = pair.info.imageUrl;
-            if (t.change24h == null && pair.priceChange?.h24 != null) t.change24h = parseFloat(pair.priceChange.h24);
+            if (pair.priceChange?.h24 != null) t.change24h = parseFloat(pair.priceChange.h24);
           }
         });
       }

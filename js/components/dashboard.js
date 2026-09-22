@@ -528,16 +528,22 @@ CF.Dashboard = (() => {
     // Attach prices and finalize values
     return Object.values(map).map(h => {
       const isCanonical = isCanonicalHolding(h);
+      const isSolana = (h.chain || '').toLowerCase().includes('solana') || (h.chains || []).some(c => c.toLowerCase().includes('solana'));
       const symUpper = (h.symbol || '').toUpperCase().trim();
       const symClean = symUpper.replace(/\([^)]*\)/g, '').trim();
       const contractKey = (h.contract || '').toLowerCase().trim();
 
+      const CANONICAL_SOL_SYMBOLS = new Set([
+        'SOL', 'JUP', 'RAY', 'BONK', 'WIF', 'PYTH', 'JTO', 'USDC', 'USDT', 'RENDER', 'BOME', 'ME',
+        'DRIFT', 'TNSR', 'KMNO', 'IO', 'HNT', 'MOBILE', 'IOT', 'MOODENG', 'GOAT', 'ACT', 'PNUT',
+        'CHILLGUY', 'FARTCOIN', 'PENGU', 'POPCAT', 'SAMO', 'WEN', 'PONKE'
+      ]);
+      const allowGenericSymbol = !isSolana || CANONICAL_SOL_SYMBOLS.has(symUpper);
+
       const pd = (h.coingeckoId && prices[h.coingeckoId])
         || (contractKey && prices[contractKey])
         || (h.contract && prices[h.contract])
-        || prices[symUpper]
-        || prices[symClean]
-        || prices[h.symbol]
+        || (allowGenericSymbol ? (prices[symUpper] || prices[symClean] || prices[h.symbol]) : null)
         || (h.name && prices[h.name.toLowerCase()]);
 
       if (pd && pd.usd > 0) {
