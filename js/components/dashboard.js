@@ -35,6 +35,41 @@ CF.Dashboard = (() => {
         ${bestPerformerCard(aggregated)}
       </div>
 
+      <!-- Charts (Hero Portfolio Performance & Allocation) -->
+      <div class="charts-grid">
+        <div class="chart-card" id="portfolioPerfCard" style="min-height:260px;">
+          <div class="chart-card-header">
+            <div>
+              <div class="chart-card-title">Portfolio Performance</div>
+              <div class="chart-perf-summary">
+                <span class="chart-perf-val" id="chartPerfVal">${CF.fmt.currency(total)}</span>
+                <span class="chart-perf-pill" id="chartPerfPill">Calculating 7D...</span>
+              </div>
+            </div>
+            <div class="chart-timeframes">
+              <button class="timeframe-btn" data-tf="24H" onclick="CF.Charts.changeTimeframe('24H')">24H</button>
+              <button class="timeframe-btn active" data-tf="7D" onclick="CF.Charts.changeTimeframe('7D')">7D</button>
+              <button class="timeframe-btn" data-tf="30D" onclick="CF.Charts.changeTimeframe('30D')">30D</button>
+              <button class="timeframe-btn" data-tf="90D" onclick="CF.Charts.changeTimeframe('90D')">90D</button>
+            </div>
+          </div>
+          <div class="chart-container" style="height:200px;">
+            <canvas id="historyChart"></canvas>
+          </div>
+          <div id="chartLoadingIndicator" style="display:none;font-size:11px;color:var(--text-3);text-align:center;margin-top:6px;">
+            Updating market performance...
+          </div>
+        </div>
+
+        <div class="chart-card donut-wrap">
+          <div class="chart-card-title">Allocation</div>
+          <div class="chart-container" style="width:160px;height:160px;">
+            <canvas id="donutChart"></canvas>
+          </div>
+          <div class="chart-legend" id="donutLegend"></div>
+        </div>
+      </div>
+
       <!-- Holdings Table -->
       <div class="section-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
         <div style="display:flex;align-items:baseline;gap:8px;">
@@ -89,40 +124,6 @@ CF.Dashboard = (() => {
             ${aggregated.map((h, i) => holdingRow(h, i + 1, total)).join('')}
           </tbody>
         </table>
-      </div>
-
-      <!-- Charts -->
-      <div class="charts-grid">
-        <div class="chart-card donut-wrap">
-          <div class="chart-card-title">Allocation</div>
-          <div class="chart-container" style="width:160px;height:160px;">
-            <canvas id="donutChart"></canvas>
-          </div>
-          <div class="chart-legend" id="donutLegend"></div>
-        </div>
-        <div class="chart-card" id="portfolioPerfCard" style="min-height:250px;">
-          <div class="chart-card-header">
-            <div>
-              <div class="chart-card-title">Portfolio Performance</div>
-              <div class="chart-perf-summary">
-                <span class="chart-perf-val" id="chartPerfVal">${CF.fmt.currency(total)}</span>
-                <span class="chart-perf-pill" id="chartPerfPill">Calculating 7D...</span>
-              </div>
-            </div>
-            <div class="chart-timeframes">
-              <button class="timeframe-btn" data-tf="24H" onclick="CF.Charts.changeTimeframe('24H')">24H</button>
-              <button class="timeframe-btn active" data-tf="7D" onclick="CF.Charts.changeTimeframe('7D')">7D</button>
-              <button class="timeframe-btn" data-tf="30D" onclick="CF.Charts.changeTimeframe('30D')">30D</button>
-              <button class="timeframe-btn" data-tf="90D" onclick="CF.Charts.changeTimeframe('90D')">90D</button>
-            </div>
-          </div>
-          <div class="chart-container" style="height:190px;">
-            <canvas id="historyChart"></canvas>
-          </div>
-          <div id="chartLoadingIndicator" style="display:none;font-size:11px;color:var(--text-3);text-align:center;margin-top:6px;">
-            Updating market performance...
-          </div>
-        </div>
       </div>
     `;
 

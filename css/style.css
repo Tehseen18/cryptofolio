@@ -395,9 +395,9 @@ tr:hover td { background: var(--card-hover); }
 /* ── Charts Grid ────────────────────────────────────────────── */
 .charts-grid {
   display: grid;
-  grid-template-columns: 300px 1fr;
+  grid-template-columns: 1fr 300px;
   gap: 12px;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .chart-card {
