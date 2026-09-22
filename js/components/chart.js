@@ -33,6 +33,9 @@ CF.Charts = (() => {
     'WMATIC': 'POL',
     'MATIC': 'POL',
     'WAVAX': 'AVAX',
+    'VELO(V2)': 'VELODROME',
+    'VELO(v2)': 'VELODROME',
+    'VELO': 'VELODROME',
   };
 
   const STABLECOINS = new Set([

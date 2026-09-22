@@ -3,7 +3,7 @@
    Combines:
    1. Binance Live Ticker 24hr Feed (sub-second institutional CEX prices,
       real-time 24h change, covers 3,700+ pairs in ONE instant call)
-   2. DexScreener API (verified contract-based DEX liquidity pool prices)
+   2. DexScreener Batch API (verified contract-based DEX liquidity pool prices)
    3. CoinGecko API (supplemental tokens, metadata, market caps)
    ============================================================ */
 
@@ -38,6 +38,7 @@ CF.CoinGecko = (() => {
     'worldcoin-wld':      'WLD',
     'pancakeswap-token':  'CAKE',
     'aerodrome-finance':  'AERO',
+    'velodrome-finance':  'VELODROME',
     'trust-wallet-token': 'TWT',
     'safepal':            'SFP',
     'scroll':             'SCR',
@@ -98,6 +99,15 @@ CF.CoinGecko = (() => {
         }
       });
 
+      // Special alias: Velodrome Finance
+      if (prices['VELODROME']) {
+        prices['VELO'] = prices['VELODROME'];
+        prices['VELO(V2)'] = prices['VELODROME'];
+        prices['VELO(v2)'] = prices['VELODROME'];
+        prices['velodrome-finance'] = prices['VELODROME'];
+        prices['0x9560e827af36c94d2ac33a39bce1fe78631088db'] = prices['VELODROME'];
+      }
+
       // Map canonical CoinGecko IDs to Binance live prices
       Object.entries(COIN_TO_SYMBOL).forEach(([cgId, sym]) => {
         if (prices[sym]) {
@@ -113,7 +123,57 @@ CF.CoinGecko = (() => {
   }
 
   /**
-   * Fetch token price from DexScreener using exact contract address
+   * Fetch token prices in batch from DexScreener using comma-separated contract addresses
+   */
+  async function fetchDexScreenerBatch(contractAddresses = []) {
+    const results = {};
+    if (!contractAddresses || contractAddresses.length === 0) return results;
+
+    const valid = contractAddresses
+      .map(a => (a || '').trim())
+      .filter(a => /^0x[a-fA-F0-9]{40}$/.test(a) || /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(a));
+
+    const uniqueAddrs = [...new Set(valid)];
+
+    for (let i = 0; i < uniqueAddrs.length; i += 30) {
+      const chunk = uniqueAddrs.slice(i, i + 30);
+      try {
+        const url = `https://api.dexscreener.com/latest/dex/tokens/${chunk.join(',')}`;
+        const resp = await fetch(url);
+        if (!resp.ok) continue;
+        const data = await resp.json();
+        const pairs = Array.isArray(data) ? data : (data.pairs || []);
+
+        pairs.forEach(p => {
+          const baseAddr = (p.baseToken?.address || '').toLowerCase();
+          const pUsd = parseFloat(p.priceUsd);
+          if (!baseAddr || isNaN(pUsd) || pUsd <= 0) return;
+
+          // Crucial: Only consider pairs where baseToken is the token address queried
+          if (!chunk.some(c => c.toLowerCase() === baseAddr)) return;
+
+          const liq = p.liquidity?.usd || 0;
+          if (!results[baseAddr] || liq > (results[baseAddr]._liq || 0)) {
+            const sym = (p.baseToken?.symbol || '').toUpperCase();
+            const entry = {
+              usd:            pUsd,
+              usd_24h_change: p.priceChange?.h24 != null ? parseFloat(p.priceChange.h24) : null,
+              source:         'dexscreener',
+              _liq:           liq,
+            };
+            results[baseAddr] = entry;
+            if (sym && !results[sym]) results[sym] = entry;
+          }
+        });
+      } catch (e) {
+        console.warn('[PriceEngine] DexScreener batch fetch error:', e.message);
+      }
+    }
+    return results;
+  }
+
+  /**
+   * Fetch token price from DexScreener using exact contract address or query
    */
   async function fetchDexScreenerTokenPrice(tokenOrContract) {
     if (!tokenOrContract) return null;
@@ -128,10 +188,19 @@ CF.CoinGecko = (() => {
       const raw = await resp.json();
       const pairs = Array.isArray(raw) ? raw : (raw.pairs || []);
 
-      const validPairs = pairs.filter(p => {
+      const targetAddr = isAddr ? tokenOrContract.toLowerCase() : null;
+
+      // Ensure baseToken matches target contract so we never pick a quote token (e.g. USDC $0.99)
+      let validPairs = pairs;
+      if (targetAddr) {
+        const basePairs = pairs.filter(p => (p.baseToken?.address || '').toLowerCase() === targetAddr);
+        if (basePairs.length > 0) validPairs = basePairs;
+      }
+
+      validPairs = validPairs.filter(p => {
         const liq = p.liquidity?.usd || 0;
         const vol = p.volume?.h24 || 0;
-        return isAddr ? true : (liq >= 10000 && vol >= 1000);
+        return isAddr ? true : (liq >= 5000 && vol >= 500);
       }).sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0));
 
       const pair = validPairs[0];
@@ -148,16 +217,16 @@ CF.CoinGecko = (() => {
 
   /**
    * Main price resolver:
-   * 1. Binance Live Tickers (instant CEX)
-   * 2. Stablecoin peg anchors ($1.00)
-   * 3. DexScreener for unlisted DEX tokens
-   * 4. CoinGecko simple/price for non-CEX tokens
+   * 1. Preset stablecoins ($1.00)
+   * 2. Binance Live Tickers (instant institutional CEX)
+   * 3. DexScreener batch for all on-chain contract tokens
+   * 4. CoinGecko simple/price for remaining missing IDs
    */
   async function getPrices(coinIds = [], symbols = [], contractTokens = []) {
     const resultMap = {};
 
     // 1. Preset stablecoins (strictly anchored)
-    const STABLES = ['USDT', 'USDC', 'DAI', 'FDUSD', 'USDE', 'PYUSD', 'tether', 'usd-coin'];
+    const STABLES = ['USDT', 'USDC', 'DAI', 'FDUSD', 'USDE', 'PYUSD', 'USDC.E', 'tether', 'usd-coin'];
     STABLES.forEach(s => {
       resultMap[s] = { usd: 1.00, usd_24h_change: 0, source: 'stable' };
       resultMap[s.toLowerCase()] = { usd: 1.00, usd_24h_change: 0, source: 'stable' };
@@ -167,24 +236,11 @@ CF.CoinGecko = (() => {
     const bPrices = await fetchLiveBinanceTickers();
     Object.assign(resultMap, bPrices);
 
-    // 3. Check DexScreener for missing tokens with contracts
-    const missingContracts = (contractTokens || []).filter(item => {
-      const sym = (item.symbol || '').toUpperCase();
-      return item.contract && !resultMap[sym] && !resultMap[item.contract];
-    });
-
-    if (missingContracts.length > 0) {
-      await Promise.allSettled(
-        missingContracts.slice(0, 8).map(async item => {
-          const dexPrice = await fetchDexScreenerTokenPrice(item.contract);
-          if (dexPrice && dexPrice.usd > 0) {
-            const sym = (item.symbol || '').toUpperCase();
-            resultMap[sym] = dexPrice;
-            resultMap[sym.toLowerCase()] = dexPrice;
-            resultMap[item.contract] = dexPrice;
-          }
-        })
-      );
+    // 3. Batch fetch all on-chain contract tokens from DexScreener
+    if (contractTokens && contractTokens.length > 0) {
+      const contractAddrs = contractTokens.map(c => c.contract).filter(Boolean);
+      const dexPrices = await fetchDexScreenerBatch(contractAddrs);
+      Object.assign(resultMap, dexPrices);
     }
 
     // 4. CoinGecko simple/price for remaining missing IDs
@@ -256,5 +312,5 @@ CF.CoinGecko = (() => {
     }
   }
 
-  return { getPrices, getCoinImages, searchCoin, fetchDexScreenerTokenPrice };
+  return { getPrices, getCoinImages, searchCoin, fetchDexScreenerTokenPrice, fetchDexScreenerBatch };
 })();

@@ -182,6 +182,8 @@ CF.EVMScanner = (() => {
         else if (upSym === 'WBTC') cgId = 'wrapped-bitcoin';
         else if (upSym === 'WETH') cgId = 'weth';
         else if (upSym === 'WBNB') cgId = 'wbnb';
+        else if (upSym === 'VELO' || upSym === 'VELO(V2)' || t.id?.toLowerCase() === '0x9560e827af36c94d2ac33a39bce1fe78631088db') cgId = 'velodrome-finance';
+        else if (upSym === 'AERO' || t.id?.toLowerCase() === '0x940181a94a35a4569e4529a3cdfb74e38fd98631') cgId = 'aerodrome-finance';
       }
 
       const change24h = typeof t.price_24h_change === 'number'
