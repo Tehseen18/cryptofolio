@@ -49,7 +49,28 @@ CF.Storage = (() => {
   // ── Sources (wallets + exchanges) ──────────────────────────
 
   function getSources() {
-    return _get(KEYS.SOURCES, []);
+    const list = _get(KEYS.SOURCES, []);
+    let dirty = false;
+    list.forEach(s => {
+      if (Array.isArray(s.holdings)) {
+        s.holdings.forEach(h => {
+          const sym = (h.symbol || '').toUpperCase().trim();
+          const isSol = (s.chain || '').toLowerCase().includes('solana') || (h.chain || '').toLowerCase().includes('solana');
+          if ((sym === 'BABY' || h.name === 'Baby Samo Coin') && (isSol || h.contract === 'Uuc6hiKT9Y6ASoqs2phonGGw2LAtecfJu9yEohppzWH')) {
+            h.coingeckoId = 'baby-samo-coin';
+            if (typeof h.price === 'number' && h.price > 0.0001) {
+              h.price = 0.000002005;
+              h.valueUSD = (h.balance || 0) * h.price;
+              dirty = true;
+            }
+          }
+        });
+      }
+    });
+    if (dirty) {
+      _set(KEYS.SOURCES, list);
+    }
+    return list;
   }
 
   function getSourceById(id) {
@@ -95,7 +116,16 @@ CF.Storage = (() => {
   // ── Price cache ────────────────────────────────────────────
 
   function getPriceCache() {
-    return _get(KEYS.PRICES, { data: {}, ts: 0 });
+    const cache = _get(KEYS.PRICES, { data: {}, ts: 0 });
+    if (cache && cache.data) {
+      if (cache.data['BABY'] && cache.data['BABY'].usd > 0.0001) {
+        delete cache.data['BABY'];
+      }
+      if (cache.data['baby'] && cache.data['baby'].usd > 0.0001) {
+        delete cache.data['baby'];
+      }
+    }
+    return cache;
   }
 
   function setPriceCache(data) {

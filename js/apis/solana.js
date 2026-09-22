@@ -235,13 +235,14 @@ CF.SolanaAPI = (() => {
                 const meta = ataMap[chunk[idx]];
                 if (meta) {
                   foundTokens.push({
-                    mint:      meta.mint,
-                    symbol:    meta.symbol,
-                    name:      meta.name,
-                    decimals:  ta.decimals ?? meta.decimals,
-                    balance:   bal,
-                    price:     meta.price || null,
-                    image:     meta.image || null,
+                    mint:        meta.mint,
+                    symbol:      meta.symbol,
+                    name:        meta.name,
+                    decimals:    ta.decimals ?? meta.decimals,
+                    balance:     bal,
+                    price:       meta.price || null,
+                    image:       meta.image || null,
+                    coingeckoId: meta.coingeckoId || null,
                   });
                 }
               }
@@ -424,7 +425,7 @@ CF.SolanaAPI = (() => {
         change24h:   t.change24h || null,
         valueUSD:    valUSD,
         image:       t.image || null,
-        coingeckoId: t.symbol.toLowerCase() === 'sol' ? 'solana' : t.symbol.toLowerCase(),
+        coingeckoId: t.coingeckoId || (t.symbol.toLowerCase() === 'sol' ? 'solana' : (t.symbol.toUpperCase() === 'BABY' ? 'baby-samo-coin' : null)),
         isCore:      !isSpam,
         isSpam:      isSpam,
       });

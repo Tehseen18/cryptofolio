@@ -72,6 +72,33 @@ CF.App = (() => {
     }
   }
 
+  function resolveHoldingPrice(h, prices, isSolana) {
+    const symUpper = (h.symbol || '').toUpperCase().trim();
+    const contract = (h.contract || '').trim();
+    const contractLower = contract.toLowerCase();
+
+    // Auto-sanitize Solana BABY token to prevent false-positive Binance BABY ($0.012)
+    if ((symUpper === 'BABY' || h.name === 'Baby Samo Coin') && (isSolana || contract === 'Uuc6hiKT9Y6ASoqs2phonGGw2LAtecfJu9yEohppzWH')) {
+      h.coingeckoId = 'baby-samo-coin';
+      if (typeof h.price === 'number' && h.price > 0.0001) {
+        h.price = 0.000002005;
+        h.valueUSD = (h.balance || 0) * h.price;
+      }
+    }
+
+    const CANONICAL_SOL_SYMBOLS = new Set([
+      'SOL', 'JUP', 'RAY', 'BONK', 'WIF', 'PYTH', 'JTO', 'USDC', 'USDT', 'RENDER', 'BOME', 'ME',
+      'DRIFT', 'TNSR', 'KMNO', 'IO', 'HNT', 'MOBILE', 'IOT', 'MOODENG', 'GOAT', 'ACT', 'PNUT',
+      'CHILLGUY', 'FARTCOIN', 'PENGU', 'POPCAT', 'SAMO', 'WEN', 'PONKE'
+    ]);
+    const allowGeneric = !isSolana || CANONICAL_SOL_SYMBOLS.has(symUpper);
+
+    return (contractLower && prices[contractLower]) ||
+           (contract && prices[contract]) ||
+           (h.coingeckoId && prices[h.coingeckoId]) ||
+           (allowGeneric ? (prices[symUpper] || prices[symUpper.toLowerCase()]) : null);
+  }
+
   function renderCurrentPage() {
     const prices       = CF.Storage.getPriceCache().data || {};
     const sources      = CF.Storage.getSources();
@@ -79,8 +106,9 @@ CF.App = (() => {
     const settings     = CF.Storage.getSettings();
     const hideSpam     = settings.hideSpam !== false;
 
-    const allHoldings = sources.flatMap(s =>
-      (s.holdings || [])
+    const allHoldings = sources.flatMap(s => {
+      const isSolanaSource = (s.chain || '').toLowerCase().includes('solana');
+      return (s.holdings || [])
         .filter(h => {
           const sym = (h.symbol || '').toUpperCase().trim();
           if (hiddenTokens.has(sym)) return false;
@@ -88,9 +116,8 @@ CF.App = (() => {
           return true;
         })
         .map(h => {
-          const pd = (h.coingeckoId && prices[h.coingeckoId]) ||
-                     (h.symbol && prices[h.symbol.toUpperCase()]) ||
-                     (h.symbol && prices[h.symbol.toLowerCase()]);
+          const isSol = isSolanaSource || (h.chain || '').toLowerCase().includes('solana');
+          const pd = resolveHoldingPrice(h, prices, isSol);
           const unitPrice = pd?.usd || h.price || 0;
           const valueUSD  = unitPrice > 0 ? h.balance * unitPrice : 0;
           return {
@@ -102,11 +129,12 @@ CF.App = (() => {
             image:      pd?.image       || h.image    || null,
             valueUSD:   valueUSD,
           };
-        })
-    );
+        });
+    });
 
     // Update per-source totals in storage
     sources.forEach(src => {
+      const isSolanaSource = (src.chain || '').toLowerCase().includes('solana');
       let total = 0;
       (src.holdings || []).forEach(h => {
         const sym = (h.symbol || '').toUpperCase().trim();
@@ -114,10 +142,10 @@ CF.App = (() => {
           h.valueUSD = 0;
           return;
         }
-        const pd = (h.coingeckoId && prices[h.coingeckoId]) ||
-                   (h.symbol && prices[h.symbol.toUpperCase()]) ||
-                   (h.symbol && prices[h.symbol.toLowerCase()]);
+        const isSol = isSolanaSource || (h.chain || '').toLowerCase().includes('solana');
+        const pd = resolveHoldingPrice(h, prices, isSol);
         const unitPrice = pd?.usd || h.price || 0;
+        h.price = unitPrice;
         h.valueUSD = unitPrice > 0 ? h.balance * unitPrice : 0;
         total += h.valueUSD;
       });
@@ -194,8 +222,10 @@ CF.App = (() => {
       const prices = CF.Storage.getPriceCache().data || {};
       const total  = CF.Storage.getSources().flatMap(s => s.holdings || [])
         .reduce((sum, h) => {
-          const pd = h.coingeckoId && prices[h.coingeckoId];
-          return sum + (pd ? h.balance * pd.usd : (h.valueUSD || 0));
+          const isSol = (h.chain || '').toLowerCase().includes('solana');
+          const pd = resolveHoldingPrice(h, prices, isSol);
+          const price = pd?.usd || h.price || 0;
+          return sum + (price > 0 ? h.balance * price : (h.valueUSD || 0));
         }, 0);
       if (total > 0) CF.Storage.addSnapshot(total);
 

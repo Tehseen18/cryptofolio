@@ -474,6 +474,16 @@ CF.Dashboard = (() => {
       if (!sym) return;
       const upSym = sym.toUpperCase();
 
+      // Auto-sanitize BABY on Solana: prevent false-positive Binance BABY ($0.012)
+      const isSol = (h.chain || '').toLowerCase().includes('solana') || (h.chains || []).some(c => c.toLowerCase().includes('solana'));
+      if ((upSym === 'BABY' || h.name === 'Baby Samo Coin') && (isSol || h.contract === 'Uuc6hiKT9Y6ASoqs2phonGGw2LAtecfJu9yEohppzWH')) {
+        h.coingeckoId = 'baby-samo-coin';
+        if (typeof h.price === 'number' && h.price > 0.0001) {
+          h.price = 0.000002005;
+          h.valueUSD = (h.balance || 0) * h.price;
+        }
+      }
+
       // Only genuine canonical cross-chain coins merge across networks
       const isCanonical = isCanonicalHolding(h);
 
@@ -540,9 +550,9 @@ CF.Dashboard = (() => {
       ]);
       const allowGenericSymbol = !isSolana || CANONICAL_SOL_SYMBOLS.has(symUpper);
 
-      const pd = (h.coingeckoId && prices[h.coingeckoId])
-        || (contractKey && prices[contractKey])
+      const pd = (contractKey && prices[contractKey])
         || (h.contract && prices[h.contract])
+        || (h.coingeckoId && prices[h.coingeckoId])
         || (allowGenericSymbol ? (prices[symUpper] || prices[symClean] || prices[h.symbol]) : null)
         || (h.name && prices[h.name.toLowerCase()]);
 

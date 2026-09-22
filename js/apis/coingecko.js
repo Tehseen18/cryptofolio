@@ -115,6 +115,11 @@ CF.CoinGecko = (() => {
         }
       });
 
+      // Remove ambiguous Binance tickers that collide with on-chain Solana tokens
+      // BABY on Binance is BabySwap/Babylon ($0.012), but on Solana it is Baby Samo Coin (~$0.000002)
+      delete prices['BABY'];
+      delete prices['baby'];
+
       console.info(`[PriceEngine] Loaded ${Object.keys(prices).length / 2} live Binance tickers`);
     } catch (e) {
       console.warn('[PriceEngine] Binance live ticker fetch failed:', e.message);
@@ -145,15 +150,16 @@ CF.CoinGecko = (() => {
         const pairs = Array.isArray(data) ? data : (data.pairs || []);
 
         pairs.forEach(p => {
-          const baseAddr = (p.baseToken?.address || '').toLowerCase();
+          const rawAddr  = p.baseToken?.address || '';
+          const baseAddr = rawAddr.toLowerCase();
           const pUsd = parseFloat(p.priceUsd);
-          if (!baseAddr || isNaN(pUsd) || pUsd <= 0) return;
+          if (!rawAddr || isNaN(pUsd) || pUsd <= 0) return;
 
           // Crucial: Only consider pairs where baseToken is the token address queried
           if (!chunk.some(c => c.toLowerCase() === baseAddr)) return;
 
           const liq = p.liquidity?.usd || 0;
-          if (!results[baseAddr] || liq > (results[baseAddr]._liq || 0)) {
+          if (!results[rawAddr] || liq > (results[rawAddr]._liq || 0)) {
             const sym = (p.baseToken?.symbol || '').toUpperCase();
             const entry = {
               usd:            pUsd,
@@ -161,7 +167,13 @@ CF.CoinGecko = (() => {
               source:         'dexscreener',
               _liq:           liq,
             };
+            results[rawAddr]  = entry;
             results[baseAddr] = entry;
+            if (rawAddr === 'Uuc6hiKT9Y6ASoqs2phonGGw2LAtecfJu9yEohppzWH' || baseAddr === 'uuc6hikt9y6asoqs2phonggw2latecfju9yeohppzwh') {
+              results['baby-samo-coin'] = entry;
+              results['BABY'] = entry;
+              results['baby'] = entry;
+            }
             if (sym && !results[sym]) results[sym] = entry;
           }
         });
