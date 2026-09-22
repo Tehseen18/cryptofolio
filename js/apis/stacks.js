@@ -2,7 +2,7 @@
    stacks.js — Stacks ($STX) & SIP-010 Token Engine
    • Native STX balance (micro-STX / 1e6)
    • SIP-010 fungible tokens discovery
-   • Hiro Open API (https://api.hiro.so)
+   • Multi-endpoint Hiro Open API with failover
    • Real-time Binance ticker & CoinGecko prices
    ============================================================ */
 
@@ -10,7 +10,10 @@ window.CF = window.CF || {};
 
 CF.StacksAPI = (() => {
 
-  const HIRO_BASE = 'https://api.hiro.so';
+  const HIRO_ENDPOINTS = [
+    'https://api.hiro.so',
+    'https://api.mainnet.hiro.so',
+  ];
 
   /**
    * Fetch STX balance and SIP-010 tokens for a Stacks address
@@ -23,42 +26,54 @@ CF.StacksAPI = (() => {
       throw new Error('Please enter a valid Stacks address');
     }
 
-    if (!/^S[PM][0-9A-Z]{38,41}$/i.test(address)) {
-      throw new Error(`Invalid Stacks address format: "${address}". Expected format starting with SP or SM.`);
+    if (!/^S[A-Z0-9]{28,55}$/i.test(address)) {
+      throw new Error(`Invalid Stacks address format: "${address}". Expected standard Stacks address starting with S (e.g. SP... or SM...).`);
     }
 
     CF.Notify.info(`Scanning Stacks blockchain for ${address.slice(0, 8)}...`, 4000);
 
-    const ctrl  = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 9000);
+    let data = null;
+    let lastError = null;
 
-    let data;
-    try {
-      const resp = await fetch(`${HIRO_BASE}/extended/v1/address/${encodeURIComponent(address)}/balances`, {
-        headers: { 'Accept': 'application/json' },
-        signal:  ctrl.signal,
-      });
-      clearTimeout(timer);
+    for (const base of HIRO_ENDPOINTS) {
+      try {
+        const ctrl  = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 8000);
+        const url   = `${base}/extended/v1/address/${encodeURIComponent(address)}/balances`;
 
-      if (!resp.ok) {
-        throw new Error(`Hiro API responded with status ${resp.status}`);
+        const resp = await fetch(url, {
+          headers: { 'Accept': 'application/json' },
+          signal:  ctrl.signal,
+        });
+        clearTimeout(timer);
+
+        if (resp.ok) {
+          data = await resp.json();
+          break;
+        } else {
+          lastError = new Error(`Hiro API HTTP ${resp.status}`);
+        }
+      } catch (e) {
+        lastError = e;
       }
-      data = await resp.json();
-    } catch (e) {
-      clearTimeout(timer);
-      throw new Error(`Stacks query failed: ${e.message}`);
+    }
+
+    if (!data) {
+      throw new Error(`Stacks query failed: ${lastError?.message || 'Unable to connect to Stacks nodes'}`);
     }
 
     const priceCache = CF.Storage?.getPriceCache()?.data || {};
     let stxPrice  = priceCache['STX']?.usd || priceCache['blockstack']?.usd || null;
     let stxChange = priceCache['STX']?.usd_24h_change ?? priceCache['blockstack']?.usd_24h_change ?? null;
 
-    if (!stxPrice && CF.CoinGecko?.getPrice) {
+    // Fallback: fetch live Binance ticker for STXUSDT
+    if (!stxPrice) {
       try {
-        const live = await CF.CoinGecko.getPrice('blockstack');
-        if (live?.usd) {
-          stxPrice  = live.usd;
-          stxChange = live.usd_24h_change;
+        const bResp = await fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=STXUSDT');
+        if (bResp.ok) {
+          const bData = await bResp.json();
+          stxPrice  = parseFloat(bData.lastPrice) || null;
+          stxChange = parseFloat(bData.priceChangePercent) || null;
         }
       } catch (e) { /* skip */ }
     }
@@ -99,7 +114,6 @@ CF.StacksAPI = (() => {
       const assetName = parts[1] || parts[0].split('.')[1] || 'Token';
       const contractId = parts[0];
 
-      // Standard Stacks token decimals are usually 6
       const decimals = 6;
       const bal = rawAmt / Math.pow(10, decimals);
 
