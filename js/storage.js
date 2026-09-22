@@ -223,6 +223,44 @@ CF.Storage = (() => {
     URL.revokeObjectURL(url);
   }
 
+  function importJSON(rawStr) {
+    try {
+      const data = typeof rawStr === 'string' ? JSON.parse(rawStr) : rawStr;
+      if (!data || !Array.isArray(data.sources)) {
+        throw new Error('Invalid backup file format: missing sources');
+      }
+
+      const current = getSources();
+      const existingIds = new Set(current.map(s => s.id));
+      const existingAddresses = new Set(current.map(s => (s.address || '').toLowerCase()));
+
+      let importedCount = 0;
+      data.sources.forEach(src => {
+        if (!src.id) src.id = 'src_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+        // Avoid duplicate address/source if already present
+        if (src.address && existingAddresses.has(src.address.toLowerCase())) {
+          return;
+        }
+        current.push(src);
+        importedCount++;
+      });
+
+      set(KEYS.SOURCES, current);
+
+      if (Array.isArray(data.snapshots) && data.snapshots.length > 0) {
+        set(KEYS.SNAPSHOTS, data.snapshots);
+      }
+
+      if (Array.isArray(data.hiddenTokens)) {
+        set(KEYS.HIDDEN, data.hiddenTokens);
+      }
+
+      return { success: true, count: importedCount, total: current.length };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+
   return {
     getSources, getSourceById, addSource, updateSource, removeSource,
     getSettings, saveSettings,
@@ -230,6 +268,6 @@ CF.Storage = (() => {
     getSnapshots, addSnapshot,
     getHoldingsCache, setHoldingsCache,
     getHiddenTokens, hideToken, unhideToken, unhideAllTokens,
-    clearAll, exportJSON, exportCSV,
+    clearAll, exportJSON, exportCSV, importJSON,
   };
 })();

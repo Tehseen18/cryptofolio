@@ -799,11 +799,21 @@ CF.Dashboard = (() => {
         <div class="settings-row">
           <div>
             <div class="settings-row-label">Export Portfolio</div>
-            <div class="settings-row-desc">Download your data (secrets are redacted)</div>
+            <div class="settings-row-desc">Download your data (backup or transfer to GitHub Pages)</div>
           </div>
           <div class="settings-row-control" style="display:flex;gap:8px;">
-            <button class="btn-secondary" onclick="CF.Storage.exportJSON()">JSON</button>
+            <button class="btn-secondary" onclick="CF.Storage.exportJSON()">Export JSON</button>
             <button class="btn-secondary" onclick="CF.Storage.exportCSV()">CSV</button>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Import / Transfer Data</div>
+            <div class="settings-row-desc">Instantly load all your wallets and settings from a JSON file</div>
+          </div>
+          <div class="settings-row-control" style="display:flex;gap:8px;">
+            <input type="file" id="importFileInput" accept=".json" style="display:none;" onchange="CF.Dashboard.handleImportFile(event)" />
+            <button class="btn-primary" onclick="document.getElementById('importFileInput').click()">↑ Import JSON File</button>
           </div>
         </div>
         <div class="settings-row">
@@ -891,6 +901,28 @@ CF.Dashboard = (() => {
     `;
   }
 
+  function handleImportFile(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const res = CF.Storage.importJSON(evt.target.result);
+        if (res.success) {
+          CF.Notify.success(`Imported ${res.count} wallet source(s)! Total: ${res.total}`);
+          await CF.App.refreshAll();
+          renderSettings();
+          CF.App.renderCurrentPage();
+        } else {
+          CF.Notify.error(`Import failed: ${res.error}`);
+        }
+      } catch (err) {
+        CF.Notify.error(`Import error: ${err.message}`);
+      }
+    };
+    reader.readAsText(file);
+  }
+
   return {
     render,
     renderSources,
@@ -901,5 +933,6 @@ CF.Dashboard = (() => {
     toggleHideSpam,
     hideTokenAction,
     openHiddenModal,
+    handleImportFile,
   };
 })();
